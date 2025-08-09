@@ -1,14 +1,17 @@
-from rest_framework.permissions import BasePermission
+from rest_framework import permissions
 
-class IsAdminOrReadOnly(BasePermission):
-    def has_permission(self, request, view):
-        if request.method in ['GET', 'HEAD', 'OPTIONS']:
-            return True
-        return request.user.is_staff
+class IsInstructorOrReadOnly(permissions.BasePermission):
+    """
+    Custom permission to only allow instructors of a course to edit it.
+    Read-only access is allowed to any authenticated user.
+    """
 
-
-class IsOwnerOrReadOnly(BasePermission):
     def has_object_permission(self, request, view, obj):
-        if request.method in ['GET', 'HEAD', 'OPTIONS']:
+        # Read permissions are allowed to any request,
+        # so we'll always allow GET, HEAD or OPTIONS requests.
+        if request.method in permissions.SAFE_METHODS:
             return True
-        return obj.user == request.user
+
+        # Write permissions are only allowed to the instructor of the course.
+        # We assume the object 'obj' has an 'instructor' attribute.
+        return obj.instructor == request.user

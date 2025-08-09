@@ -42,3 +42,52 @@ class UserProgress(models.Model):
     def __str__(self):
         return f"Progress for {self.user.username} in {self.course.title}"
 
+class Quiz(models.Model):
+    """
+    A quiz associated with a specific course.
+    """
+    course = models.ForeignKey(Course, related_name='quizzes', on_delete=models.CASCADE)
+    title = models.CharField(max_length=200)
+    description = models.TextField(blank=True, null=True)
+
+    class Meta:
+        verbose_name_plural = "Quizzes"
+
+    def __str__(self):
+        return f"Quiz for {self.course.title}: {self.title}"
+
+
+class Question(models.Model):
+    """
+    A question within a quiz.
+    """
+    quiz = models.ForeignKey(Quiz, related_name='questions', on_delete=models.CASCADE)
+    text = models.CharField(max_length=500)
+
+    def __str__(self):
+        return self.text
+
+
+class Answer(models.Model):
+    """
+    A multiple-choice answer for a question.
+    """
+    question = models.ForeignKey(Question, related_name='answers', on_delete=models.CASCADE)
+    text = models.CharField(max_length=255)
+    is_correct = models.BooleanField(default=False)
+
+    def __str__(self):
+        return f"Answer for '{self.question.text}': {self.text}"
+
+
+class QuizAttempt(models.Model):
+    """
+    Records a user's attempt at a quiz, including their score.
+    """
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    quiz = models.ForeignKey(Quiz, on_delete=models.CASCADE)
+    score = models.FloatField() # Score can be a percentage, e.g., 85.5
+    timestamp = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.user.username}'s attempt at {self.quiz.title} - Score: {self.score}%"
