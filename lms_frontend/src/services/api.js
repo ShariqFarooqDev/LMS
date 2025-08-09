@@ -1,12 +1,11 @@
 import axios from 'axios';
 
-const API_URL = 'http://localhost:8000/api/courses/'; // Your Django API base URL
-
+// Set the base URL to the root of the server.
 const apiClient = axios.create({
-    baseURL: API_URL,
+    baseURL: 'http://localhost:8000',
 });
 
-// Interceptor to add the auth token to every request
+// Interceptor to add the auth token to every request. This part is correct.
 apiClient.interceptors.request.use(
     (config) => {
         const token = localStorage.getItem('token');
@@ -21,17 +20,19 @@ apiClient.interceptors.request.use(
 );
 
 // --- Auth Functions ---
-export const login = (credentials) => apiClient.post('login/', credentials);
-export const register = (userData) => apiClient.post('register/', userData);
+// Use the full path from the server root for each request.
+export const login = (credentials) => apiClient.post('/api/courses/login/', credentials);
+export const register = (userData) => apiClient.post('/api/courses/register/', userData);
 
 
-// --- Keep your existing API functions ---
-export const getCourses = () => apiClient.get('courses/');
-export const getCourseDetails = (id) => apiClient.get(`courses/${id}/`);
-export const getQuizzes = (courseId) => apiClient.get(`quizzes/?course=${courseId}`);
-export const getQuizDetails = (id) => apiClient.get(`quizzes/${id}/`);
-export const submitQuiz = (quizId, answers) => apiClient.post(`quizzes/${quizId}/submit/`, { answers });
-export const getUserProgress = (courseId) => apiClient.get(`progress/${courseId}/`);
-export const markLessonComplete = (lessonId) => apiClient.post(`lessons/${lessonId}/complete/`);
+// --- API Functions ---
+// Use the full path for all other API calls as well.
+export const getCourses = () => apiClient.get('/api/courses/courses/');
+export const getCourseDetails = (id) => apiClient.get(`/api/courses/courses/${id}/`);
+export const getQuizzes = (courseId) => apiClient.get(`/api/courses/quizzes/?course=${courseId}`);
+export const getQuizDetails = (id) => apiClient.get(`/api/courses/quizzes/${id}/`);
+export const submitQuiz = (quizId, answers) => apiClient.post(`/api/courses/quizzes/${quizId}/submit/`, { answers });
+export const getUserProgress = (courseId) => apiClient.get(`/api/courses/progress/${courseId}/`);
+export const markLessonComplete = (lessonId) => apiClient.post(`/api/courses/lessons/${lessonId}/complete/`);
 
 export default apiClient;
