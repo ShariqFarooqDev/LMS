@@ -1,25 +1,82 @@
-# Keep your existing imports
+# Keep all your existing imports
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, AllowAny # Import AllowAny
 from rest_framework.views import APIView
 from django.shortcuts import get_object_or_404
+from django.contrib.auth.models import User # Import User model
+from django.contrib.auth import authenticate # Import authenticate
+from rest_framework.authtoken.models import Token # Import Token model
 
-# Keep your existing model and serializer imports, and add the new ones
+# Keep all your existing model and serializer imports, and add UserSerializer
 from .models import (
     Course, Lesson, UserProgress,
     Quiz, Question, Answer, QuizAttempt
 )
 from .serializers import (
     CourseSerializer, LessonSerializer, UserProgressSerializer,
-    QuizSerializer, QuizSubmissionSerializer, QuizAttemptSerializer
+    QuizSerializer, QuizSubmissionSerializer, QuizAttemptSerializer,
+    UserSerializer # Make sure UserSerializer is imported
 )
 from .permissions import IsInstructorOrReadOnly
 
-# --- Keep your existing ViewSets and Views ---
+# --- Add the new Registration and Login views below ---
+
+class RegisterView(APIView):
+    """
+    View for user registration.
+    """
+    permission_classes = [AllowAny] # Anyone should be able to register
+
+    def post(self, request):
+        username = request.data.get('username')
+        password = request.data.get('password')
+        email = request.data.get('email')
+
+        if not username or not password or not email:
+            return Response(
+                {'error': 'Username, password, and email are required.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        if User.objects.filter(username=username).exists():
+            return Response(
+                {'error': 'Username already taken.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        user = User.objects.create_user(username=username, password=password, email=email)
+        token, created = Token.objects.get_or_create(user=user)
+
+        return Response({'token': token.key}, status=status.HTTP_201_CREATED)
+
+
+class LoginView(APIView):
+    """
+    View for user login. Returns an auth token.
+    """
+    permission_classes = [AllowAny] # Anyone can attempt to log in
+
+    def post(self, request):
+        username = request.data.get('username')
+        password = request.data.get('password')
+
+        user = authenticate(username=username, password=password)
+
+        if user:
+            token, created = Token.objects.get_or_create(user=user)
+            return Response({'token': token.key})
+        else:
+            return Response(
+                {'error': 'Invalid Credentials'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+
+# --- Keep all your existing ViewSets and Views below ---
 
 class CourseViewSet(viewsets.ModelViewSet):
+    # ... (no changes needed here)
     queryset = Course.objects.all()
     serializer_class = CourseSerializer
     permission_classes = [IsInstructorOrReadOnly]
@@ -45,6 +102,7 @@ class CourseViewSet(viewsets.ModelViewSet):
 
 
 class LessonViewSet(viewsets.ModelViewSet):
+    # ... (no changes needed here)
     queryset = Lesson.objects.all()
     serializer_class = LessonSerializer
     permission_classes = [IsAuthenticated, IsInstructorOrReadOnly]
@@ -57,6 +115,7 @@ class LessonViewSet(viewsets.ModelViewSet):
 
 
 class MarkLessonCompleteView(APIView):
+    # ... (no changes needed here)
     permission_classes = [IsAuthenticated]
 
     def post(self, request, lesson_id):
@@ -79,6 +138,7 @@ class MarkLessonCompleteView(APIView):
 
 
 class UserProgressView(APIView):
+    # ... (no changes needed here)
     permission_classes = [IsAuthenticated]
 
     def get(self, request, course_id):
@@ -88,12 +148,8 @@ class UserProgressView(APIView):
         return Response(serializer.data)
 
 
-# --- Add the new QuizViewSet below ---
-
 class QuizViewSet(viewsets.ModelViewSet):
-    """
-    A ViewSet for viewing, creating, and submitting quizzes.
-    """
+    # ... (no changes needed here)
     queryset = Quiz.objects.all()
     serializer_class = QuizSerializer
     permission_classes = [IsAuthenticated, IsInstructorOrReadOnly]
@@ -141,4 +197,3 @@ class QuizViewSet(viewsets.ModelViewSet):
         # Return the result to the user
         result_serializer = QuizAttemptSerializer(attempt)
         return Response(result_serializer.data, status=status.HTTP_200_OK)
-
