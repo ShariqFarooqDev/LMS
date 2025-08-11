@@ -1,30 +1,29 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { login } from '../services/api';
+import * as API from '../services/api';
 
-const LoginPage = ({ setAuth }) => {
+// Accept onLogin as a prop to communicate with App.js
+const LoginPage = ({ onLogin }) => {
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
-    const [error, setError] = useState('');
     const navigate = useNavigate();
 
-    const handleLogin = async (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
         try {
-            const response = await login({ username, password });
-            localStorage.setItem('token', response.data.token);
-            setAuth(true); // Update auth state in App.js
-            navigate('/'); // Redirect to home page
-        } catch (err) {
-            setError('Invalid credentials. Please try again.');
-            console.error(err);
+            await API.login({ username, password });
+            onLogin(); // Notify App.js that the user is logged in
+            navigate('/'); // Redirect to the homepage
+        } catch (error) {
+            console.error('Login failed:', error);
+            alert('Login failed. Please check your username and password.');
         }
     };
 
     return (
         <div>
-            <h2>Login</h2>
-            <form onSubmit={handleLogin}>
+            <h1>Login</h1>
+            <form onSubmit={handleSubmit}>
                 <input
                     type="text"
                     placeholder="Username"
@@ -41,7 +40,6 @@ const LoginPage = ({ setAuth }) => {
                 />
                 <button type="submit">Login</button>
             </form>
-            {error && <p style={{ color: 'red' }}>{error}</p>}
         </div>
     );
 };

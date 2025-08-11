@@ -2,17 +2,13 @@ from rest_framework import serializers
 from django.contrib.auth.models import User
 from .models import Course, Enrollment, Video, Quiz, Submission
 
-# Serializer for creating new users (registration)
 class RegisterSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        # Fields to expect for registration
         fields = ('username', 'password', 'email')
-        # Ensure the password is not readable from the API
         extra_kwargs = {'password': {'write_only': True}}
 
     def create(self, validated_data):
-        # Use create_user to ensure the password is properly hashed
         user = User.objects.create_user(
             validated_data['username'],
             validated_data['email'],
@@ -20,7 +16,6 @@ class RegisterSerializer(serializers.ModelSerializer):
         )
         return user
 
-# Serializer for reading user data
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
@@ -59,6 +54,11 @@ class QuizSerializer(serializers.ModelSerializer):
 
 
 class SubmissionSerializer(serializers.ModelSerializer):
+    # Nest the QuizSerializer to include quiz details in the response
+    quiz = QuizSerializer(read_only=True)
+    user = UserSerializer(read_only=True)
+
     class Meta:
         model = Submission
-        fields = '__all__'
+        # Make sure to include the nested 'quiz' and 'user' fields
+        fields = ['id', 'quiz', 'user', 'score', 'submitted_at']

@@ -1,37 +1,45 @@
 import React, { useEffect, useState } from 'react';
-// Correctly import the API functions
 import * as API from '../services/api';
 
-
 const ProgressPage = () => {
-    const [progress, setProgress] = useState([]);
+    const [submissions, setSubmissions] = useState([]);
+    const [loading, setLoading] = useState(true); // Add loading state
 
     useEffect(() => {
-        // This is a placeholder for fetching user progress.
-        // You would need a `getMyProgress` endpoint in your API.
         const fetchProgress = async () => {
-            // const response = await API.getMyProgress();
-            // setProgress(response.data);
-            // Simulating progress data for now
-            setProgress([
-                { course: 'Introduction to Python', score: 85 },
-                { course: 'Advanced Django', score: 92 }
-            ]);
+            try {
+                // Fetch real submission data from the backend
+                const response = await API.getUserProgress();
+                setSubmissions(response.data);
+            } catch (error) {
+                console.error('Error fetching progress:', error);
+            } finally {
+                setLoading(false); // Stop loading once data is fetched or an error occurs
+            }
         };
 
         fetchProgress();
     }, []);
 
+    if (loading) {
+        return <div>Loading your progress...</div>;
+    }
+
     return (
         <div>
             <h1>My Progress</h1>
-            <ul>
-                {progress.map((p, index) => (
-                    <li key={index}>
-                        {p.course}: {p.score}%
-                    </li>
-                ))}
-            </ul>
+            {submissions.length > 0 ? (
+                <ul>
+                    {submissions.map((sub) => (
+                        <li key={sub.id}>
+                            {/* Displaying quiz title and score from the submission */}
+                            Quiz: {sub.quiz.title} - Score: {sub.score}%
+                        </li>
+                    ))}
+                </ul>
+            ) : (
+                <p>You have not completed any quizzes yet.</p>
+            )}
         </div>
     );
 };
