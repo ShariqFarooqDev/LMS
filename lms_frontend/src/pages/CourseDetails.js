@@ -2,73 +2,60 @@ import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import * as API from '../services/api';
 
-
 const CourseDetails = () => {
     const { id } = useParams();
     const [course, setCourse] = useState(null);
     const [videos, setVideos] = useState([]);
-    const [quizzes, setQuizzes] = useState([]);
     const [isEnrolled, setIsEnrolled] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
 
-    // Effect 1: Fetch primary course data and check enrollment status
+    // This effect now handles all data fetching for the page
     useEffect(() => {
-        const fetchPrimaryData = async () => {
-            // A user must be logged in to see course details
+        const fetchCourseData = async () => {
             if (!localStorage.getItem('access_token')) {
                 setIsLoading(false);
                 return;
             }
 
             try {
-                // Fetch course details and user's enrollments at the same time
+                // Fetch the main course details and the user's enrollments
                 const [courseRes, enrollmentsRes] = await Promise.all([
                     API.getCourseDetails(id),
                     API.getMyEnrollments()
                 ]);
 
-                setCourse(courseRes.data);
+                const courseData = courseRes.data;
+                setCourse(courseData);
 
-                // Check if the current course ID exists in the user's enrollments
+                // Check if the user is enrolled in this specific course
                 const isUserEnrolled = enrollmentsRes.data.some(
                     enrollment => enrollment.course.id === parseInt(id)
                 );
                 setIsEnrolled(isUserEnrolled);
 
+                // If the user is enrolled, fetch the protected video content
+                if (isUserEnrolled) {
+                    const videosRes = await API.getVideos(id);
+                    setVideos(videosRes.data);
+                }
+
             } catch (error) {
-                console.error('Error fetching primary course data:', error);
+                console.error('Error fetching course data:', error);
             } finally {
                 setIsLoading(false);
             }
         };
 
-        fetchPrimaryData();
+        fetchCourseData();
     }, [id]);
-
-    // Effect 2: Fetch protected content (videos/quizzes) ONLY if enrolled
-    useEffect(() => {
-        const fetchProtectedContent = async () => {
-            if (isEnrolled) {
-                try {
-                    const [videosRes, quizzesRes] = await Promise.all([
-                        API.getVideos(id),
-                        API.getQuizzes(id)
-                    ]);
-                    setVideos(videosRes.data);
-                    setQuizzes(quizzesRes.data);
-                } catch (error) {
-                    console.error('Error fetching protected content:', error);
-                }
-            }
-        };
-
-        fetchProtectedContent();
-    }, [isEnrolled, id]); // This effect runs when the enrollment status changes
 
     const handleEnroll = async () => {
         try {
             await API.enrollCourse(id);
-            setIsEnrolled(true); // This will trigger the second useEffect to fetch content
+            setIsEnrolled(true);
+            // After enrolling, fetch the videos immediately so they appear
+            const videosRes = await API.getVideos(id);
+            setVideos(videosRes.data);
             alert('Enrolled successfully!');
         } catch (error) {
             console.error('Error enrolling in course:', error);
@@ -87,7 +74,7 @@ const CourseDetails = () => {
                 {isEnrolled ? 'Enrolled' : 'Enroll'}
             </button>
 
-            {/* Only show Videos and Quizzes if the user is enrolled */}
+            {/* Only show the Videos and Quizzes sections if the user is enrolled */}
             {isEnrolled && (
                 <>
                     <h2>Videos</h2>
@@ -98,8 +85,9 @@ const CourseDetails = () => {
                     </ul>
 
                     <h2>Quizzes</h2>
+                    {/* The list of quizzes now comes directly from the course object */}
                     <ul>
-                        {quizzes.map(quiz => (
+                        {course.quizzes && course.quizzes.map(quiz => (
                             <li key={quiz.id}>
                                 <Link to={`/quizzes/${quiz.id}`}>{quiz.title}</Link>
                             </li>

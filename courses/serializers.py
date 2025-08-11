@@ -1,7 +1,8 @@
 from rest_framework import serializers
 from django.contrib.auth.models import User
-from .models import Course, Enrollment, Video, Quiz, Submission
+from .models import Course, Enrollment, Video, Quiz, Question, Choice, Submission
 
+# --- Existing Serializers ---
 class RegisterSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
@@ -9,11 +10,7 @@ class RegisterSerializer(serializers.ModelSerializer):
         extra_kwargs = {'password': {'write_only': True}}
 
     def create(self, validated_data):
-        user = User.objects.create_user(
-            validated_data['username'],
-            validated_data['email'],
-            validated_data['password']
-        )
+        user = User.objects.create_user(validated_data['username'], validated_data['email'], validated_data['password'])
         return user
 
 class UserSerializer(serializers.ModelSerializer):
@@ -21,21 +18,27 @@ class UserSerializer(serializers.ModelSerializer):
         model = User
         fields = ['id', 'username', 'email']
 
-
 class VideoSerializer(serializers.ModelSerializer):
     class Meta:
         model = Video
         fields = '__all__'
 
+# New simple serializer for listing quizzes within a course
+class SimpleQuizSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Quiz
+        fields = ['id', 'title']
 
 class CourseSerializer(serializers.ModelSerializer):
     owner = UserSerializer(read_only=True)
     videos = VideoSerializer(many=True, read_only=True)
+    # Use the new simple serializer to include a list of quizzes
+    quizzes = SimpleQuizSerializer(many=True, read_only=True)
 
     class Meta:
         model = Course
-        fields = ['id', 'title', 'description', 'owner', 'videos']
-
+        # Add 'quizzes' to the list of fields
+        fields = ['id', 'title', 'description', 'owner', 'videos', 'quizzes']
 
 class EnrollmentSerializer(serializers.ModelSerializer):
     user = UserSerializer(read_only=True)
@@ -46,19 +49,52 @@ class EnrollmentSerializer(serializers.ModelSerializer):
         model = Enrollment
         fields = ['id', 'user', 'course', 'enrolled_at', 'course_id']
 
+# --- Serializers for Taking a Quiz ---
+class StudentChoiceSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Choice
+        fields = ['id', 'text']
 
-class QuizSerializer(serializers.ModelSerializer):
+class StudentQuestionSerializer(serializers.ModelSerializer):
+    choices = StudentChoiceSerializer(many=True, read_only=True)
+    class Meta:
+        model = Question
+        fields = ['id', 'text', 'choices']
+
+class QuizDetailSerializer(serializers.ModelSerializer):
+    questions = StudentQuestionSerializer(many=True, read_only=True)
     class Meta:
         model = Quiz
-        fields = '__all__'
+        fields = ['id', 'title', 'description', 'questions']
 
-
+# --- Submission Serializer ---
 class SubmissionSerializer(serializers.ModelSerializer):
-    # Nest the QuizSerializer to include quiz details in the response
-    quiz = QuizSerializer(read_only=True)
+    answers = serializers.JSONField(write_only=True, required=False)
+    # Use the simple serializer for the nested quiz object
+    quiz = SimpleQuizSerializer(read_only=True)
     user = UserSerializer(read_only=True)
 
     class Meta:
         model = Submission
-        # Make sure to include the nested 'quiz' and 'user' fields
-        fields = ['id', 'quiz', 'user', 'score', 'submitted_at']
+        fields = ['id', 'quiz', 'user', 'score', 'submitted_at', 'answers']
+        read_only_fields = ['score', 'submitted_at']
+
+    def create(self, validated_data):
+        answers = validated_data.pop('answers')
+        quiz = self.context['quiz']
+        user = self.context['request'].user
+        if Submission.objects.filter(quiz=quiz, user=user).exists():
+            raise serializers.ValidationError("You have already submitted this quiz.")
+        total_questions = quiz.questions.count()
+        correct_answers = 0
+        for question_id, choice_id in answers.items():
+            try:
+                question = Question.objects.get(id=question_id, quiz=quiz)
+                correct_choice = Choice.objects.get(question=question, is_correct=True)
+                if correct_choice.id == int(choice_id):
+                    correct_answers += 1
+            except (Question.DoesNotExist, Choice.DoesNotExist, ValueError):
+                continue
+        score = (correct_answers / total_questions) * 100 if total_questions > 0 else 0
+        submission = Submission.objects.create(quiz=quiz, user=user, score=score)
+        return submission
