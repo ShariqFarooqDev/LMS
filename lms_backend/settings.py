@@ -138,8 +138,11 @@ REST_FRAMEWORK = {
 }
 
 # CORS Configuration
-# This allows your React frontend (running on localhost:3000) to make requests to the API.
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
     "http://127.0.0.1:3000",
 ]
+
+# Media files configuration
+MEDIA_URL = '/media/'
+MEDIA_ROOT = BASE_DIR / 'media'

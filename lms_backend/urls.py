@@ -1,9 +1,13 @@
 from django.contrib import admin
 from django.urls import path, include
-from rest_framework.authtoken import views as drf_views
+from django.conf import settings
+from django.conf.urls.static import static
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/', include('courses.urls')),  # API endpoints
-    path('api-token-auth/', drf_views.obtain_auth_token),
 ]
+
+# Add this line to serve media files during development
+if settings.DEBUG:
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

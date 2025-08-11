@@ -18,12 +18,16 @@ class UserSerializer(serializers.ModelSerializer):
         model = User
         fields = ['id', 'username', 'email']
 
+# --- THIS IS THE UPDATED SERIALIZER ---
 class VideoSerializer(serializers.ModelSerializer):
+    # This ensures the full URL is returned for the video file.
+    video_file = serializers.FileField(use_url=True)
+
     class Meta:
         model = Video
-        fields = '__all__'
+        fields = ['id', 'title', 'description', 'video_file', 'course']
 
-# New simple serializer for listing quizzes within a course
+
 class SimpleQuizSerializer(serializers.ModelSerializer):
     class Meta:
         model = Quiz
@@ -32,12 +36,10 @@ class SimpleQuizSerializer(serializers.ModelSerializer):
 class CourseSerializer(serializers.ModelSerializer):
     owner = UserSerializer(read_only=True)
     videos = VideoSerializer(many=True, read_only=True)
-    # Use the new simple serializer to include a list of quizzes
     quizzes = SimpleQuizSerializer(many=True, read_only=True)
 
     class Meta:
         model = Course
-        # Add 'quizzes' to the list of fields
         fields = ['id', 'title', 'description', 'owner', 'videos', 'quizzes']
 
 class EnrollmentSerializer(serializers.ModelSerializer):
@@ -48,8 +50,8 @@ class EnrollmentSerializer(serializers.ModelSerializer):
     class Meta:
         model = Enrollment
         fields = ['id', 'user', 'course', 'enrolled_at', 'course_id']
+        unique_together = ('user', 'course')
 
-# --- Serializers for Taking a Quiz ---
 class StudentChoiceSerializer(serializers.ModelSerializer):
     class Meta:
         model = Choice
@@ -67,10 +69,8 @@ class QuizDetailSerializer(serializers.ModelSerializer):
         model = Quiz
         fields = ['id', 'title', 'description', 'questions']
 
-# --- Submission Serializer ---
 class SubmissionSerializer(serializers.ModelSerializer):
     answers = serializers.JSONField(write_only=True, required=False)
-    # Use the simple serializer for the nested quiz object
     quiz = SimpleQuizSerializer(read_only=True)
     user = UserSerializer(read_only=True)
 

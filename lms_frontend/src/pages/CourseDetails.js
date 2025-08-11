@@ -8,8 +8,8 @@ const CourseDetails = () => {
     const [videos, setVideos] = useState([]);
     const [isEnrolled, setIsEnrolled] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
+    const [selectedVideo, setSelectedVideo] = useState(null);
 
-    // This effect now handles all data fetching for the page
     useEffect(() => {
         const fetchCourseData = async () => {
             if (!localStorage.getItem('access_token')) {
@@ -18,7 +18,6 @@ const CourseDetails = () => {
             }
 
             try {
-                // Fetch the main course details and the user's enrollments
                 const [courseRes, enrollmentsRes] = await Promise.all([
                     API.getCourseDetails(id),
                     API.getMyEnrollments()
@@ -27,16 +26,17 @@ const CourseDetails = () => {
                 const courseData = courseRes.data;
                 setCourse(courseData);
 
-                // Check if the user is enrolled in this specific course
                 const isUserEnrolled = enrollmentsRes.data.some(
                     enrollment => enrollment.course.id === parseInt(id)
                 );
                 setIsEnrolled(isUserEnrolled);
 
-                // If the user is enrolled, fetch the protected video content
                 if (isUserEnrolled) {
                     const videosRes = await API.getVideos(id);
                     setVideos(videosRes.data);
+                    if (videosRes.data.length > 0) {
+                        setSelectedVideo(videosRes.data[0]);
+                    }
                 }
 
             } catch (error) {
@@ -53,9 +53,11 @@ const CourseDetails = () => {
         try {
             await API.enrollCourse(id);
             setIsEnrolled(true);
-            // After enrolling, fetch the videos immediately so they appear
             const videosRes = await API.getVideos(id);
             setVideos(videosRes.data);
+            if (videosRes.data.length > 0) {
+                setSelectedVideo(videosRes.data[0]);
+            }
             alert('Enrolled successfully!');
         } catch (error) {
             console.error('Error enrolling in course:', error);
@@ -74,26 +76,44 @@ const CourseDetails = () => {
                 {isEnrolled ? 'Enrolled' : 'Enroll'}
             </button>
 
-            {/* Only show the Videos and Quizzes sections if the user is enrolled */}
             {isEnrolled && (
-                <>
-                    <h2>Videos</h2>
-                    <ul>
-                        {videos.map(video => (
-                            <li key={video.id}>{video.title}</li>
-                        ))}
-                    </ul>
+                <div className="course-content">
+                    <div className="video-player-section">
+                        {selectedVideo ? (
+                            <div>
+                                <h3>{selectedVideo.title}</h3>
+                                <video controls autoPlay key={selectedVideo.id} width="100%">
+                                    {/* The src now directly uses the full URL from the API */}
+                                    <source src={selectedVideo.video_file} type="video/mp4" />
+                                    Your browser does not support the video tag.
+                                </video>
+                                <p>{selectedVideo.description}</p>
+                            </div>
+                        ) : (
+                            <p>Select a video to play.</p>
+                        )}
+                    </div>
 
-                    <h2>Quizzes</h2>
-                    {/* The list of quizzes now comes directly from the course object */}
-                    <ul>
-                        {course.quizzes && course.quizzes.map(quiz => (
-                            <li key={quiz.id}>
-                                <Link to={`/quizzes/${quiz.id}`}>{quiz.title}</Link>
-                            </li>
-                        ))}
-                    </ul>
-                </>
+                    <div className="playlist-section">
+                        <h2>Videos</h2>
+                        <ul>
+                            {videos.map(video => (
+                                <li key={video.id} onClick={() => setSelectedVideo(video)} className={selectedVideo?.id === video.id ? 'active' : ''}>
+                                    {video.title}
+                                </li>
+                            ))}
+                        </ul>
+
+                        <h2>Quizzes</h2>
+                        <ul>
+                            {course.quizzes && course.quizzes.map(quiz => (
+                                <li key={quiz.id}>
+                                    <Link to={`/quizzes/${quiz.id}`}>{quiz.title}</Link>
+                                </li>
+                            ))}
+                        </ul>
+                    </div>
+                </div>
             )}
         </div>
     );
