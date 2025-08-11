@@ -1,14 +1,19 @@
 from django.contrib import admin
-# Import all the models you want to see in the admin panel
-from .models import Course, Lesson, UserProgress, Quiz, Question, Answer, QuizAttempt
+from .models import Course, Enrollment, Video, Quiz, Question, Choice, Submission
 
-# Register your models here.
+# To make choices editable directly within the Question admin page
+class ChoiceInline(admin.TabularInline):
+    model = Choice
+    extra = 3 # Show 3 extra choice fields by default
+
+# Custom admin view for the Question model
+class QuestionAdmin(admin.ModelAdmin):
+    inlines = [ChoiceInline]
+
+# Register your models here to make them accessible in the Django admin panel.
 admin.site.register(Course)
-admin.site.register(Lesson)
-admin.site.register(UserProgress)
-
-# Add these lines to register the new quiz models
+admin.site.register(Enrollment)
+admin.site.register(Video)
 admin.site.register(Quiz)
-admin.site.register(Question)
-admin.site.register(Answer)
-admin.site.register(QuizAttempt)
+admin.site.register(Question, QuestionAdmin) # Register Question with its custom admin view
+admin.site.register(Submission)
