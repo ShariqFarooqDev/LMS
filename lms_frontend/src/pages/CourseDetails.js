@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-// Correctly import the API functions
 import * as API from '../services/api';
 
 
@@ -9,59 +8,105 @@ const CourseDetails = () => {
     const [course, setCourse] = useState(null);
     const [videos, setVideos] = useState([]);
     const [quizzes, setQuizzes] = useState([]);
+    const [isEnrolled, setIsEnrolled] = useState(false);
+    const [isLoading, setIsLoading] = useState(true);
 
+    // Effect 1: Fetch primary course data and check enrollment status
     useEffect(() => {
-        const fetchCourseData = async () => {
+        const fetchPrimaryData = async () => {
+            // A user must be logged in to see course details
+            if (!localStorage.getItem('access_token')) {
+                setIsLoading(false);
+                return;
+            }
+
             try {
-                const courseRes = await API.getCourseDetails(id);
+                // Fetch course details and user's enrollments at the same time
+                const [courseRes, enrollmentsRes] = await Promise.all([
+                    API.getCourseDetails(id),
+                    API.getMyEnrollments()
+                ]);
+
                 setCourse(courseRes.data);
 
-                const videosRes = await API.getVideos(id);
-                setVideos(videosRes.data);
+                // Check if the current course ID exists in the user's enrollments
+                const isUserEnrolled = enrollmentsRes.data.some(
+                    enrollment => enrollment.course.id === parseInt(id)
+                );
+                setIsEnrolled(isUserEnrolled);
 
-                const quizzesRes = await API.getQuizzes(id);
-                setQuizzes(quizzesRes.data);
             } catch (error) {
-                console.error('Error fetching course data:', error);
+                console.error('Error fetching primary course data:', error);
+            } finally {
+                setIsLoading(false);
             }
         };
 
-        fetchCourseData();
+        fetchPrimaryData();
     }, [id]);
+
+    // Effect 2: Fetch protected content (videos/quizzes) ONLY if enrolled
+    useEffect(() => {
+        const fetchProtectedContent = async () => {
+            if (isEnrolled) {
+                try {
+                    const [videosRes, quizzesRes] = await Promise.all([
+                        API.getVideos(id),
+                        API.getQuizzes(id)
+                    ]);
+                    setVideos(videosRes.data);
+                    setQuizzes(quizzesRes.data);
+                } catch (error) {
+                    console.error('Error fetching protected content:', error);
+                }
+            }
+        };
+
+        fetchProtectedContent();
+    }, [isEnrolled, id]); // This effect runs when the enrollment status changes
 
     const handleEnroll = async () => {
         try {
             await API.enrollCourse(id);
+            setIsEnrolled(true); // This will trigger the second useEffect to fetch content
             alert('Enrolled successfully!');
         } catch (error) {
             console.error('Error enrolling in course:', error);
-            alert('Failed to enroll. You might already be enrolled or not logged in.');
+            alert('Failed to enroll. You might already be enrolled.');
         }
     };
 
-    if (!course) return <div>Loading...</div>;
+    if (isLoading) return <div>Loading...</div>;
+    if (!course) return <div>Course not found or you are not logged in.</div>;
 
     return (
         <div>
             <h1>{course.title}</h1>
             <p>{course.description}</p>
-            <button onClick={handleEnroll}>Enroll</button>
+            <button onClick={handleEnroll} disabled={isEnrolled}>
+                {isEnrolled ? 'Enrolled' : 'Enroll'}
+            </button>
 
-            <h2>Videos</h2>
-            <ul>
-                {videos.map(video => (
-                    <li key={video.id}>{video.title}</li>
-                ))}
-            </ul>
+            {/* Only show Videos and Quizzes if the user is enrolled */}
+            {isEnrolled && (
+                <>
+                    <h2>Videos</h2>
+                    <ul>
+                        {videos.map(video => (
+                            <li key={video.id}>{video.title}</li>
+                        ))}
+                    </ul>
 
-            <h2>Quizzes</h2>
-            <ul>
-                {quizzes.map(quiz => (
-                    <li key={quiz.id}>
-                        <Link to={`/quizzes/${quiz.id}`}>{quiz.title}</Link>
-                    </li>
-                ))}
-            </ul>
+                    <h2>Quizzes</h2>
+                    <ul>
+                        {quizzes.map(quiz => (
+                            <li key={quiz.id}>
+                                <Link to={`/quizzes/${quiz.id}`}>{quiz.title}</Link>
+                            </li>
+                        ))}
+                    </ul>
+                </>
+            )}
         </div>
     );
 };

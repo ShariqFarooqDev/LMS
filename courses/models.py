@@ -10,11 +10,14 @@ class Course(models.Model):
     def __str__(self):
         return self.title
 
-# The Enrollment model defines the relationship between a User and a Course.
 class Enrollment(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     course = models.ForeignKey(Course, on_delete=models.CASCADE)
     enrolled_at = models.DateTimeField(auto_now_add=True)
+
+    # This class ensures that a user can only enroll in a course once.
+    class Meta:
+        unique_together = ('user', 'course')
 
     def __str__(self):
         return f'{self.user.username} enrolled in {self.course.title}'
